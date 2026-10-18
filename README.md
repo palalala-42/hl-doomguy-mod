@@ -127,10 +127,11 @@ smallest set, and a set that is missing on disk falls back to the next smaller o
 resolution ever ends up with a broken HUD — only with a bar that is a little smaller than
 the perfect fit.
 
-Verified in game: 800×600 (the reference set) and 1440×900 / 1440×1080 (the wide modes).
-The other sets come from the same Doom patches through the same pipeline and are picked
-automatically; if a resolution ever looks off, the console line
-`doomhud: screen <W>x<H> -> tag <n>` says which set was chosen.
+**800×600 was the first — and for a long time the only — resolution tested in game**: the
+whole HUD was developed and tuned there, and it is still the reference set (`dg25`).
+1440×900 and 1440×1080 were checked as well. The remaining sets come from the same Doom
+patches through the same pipeline and are picked automatically; if a resolution ever looks
+off, the console line `doomhud: screen <W>x<H> -> tag <n>` says which set was chosen.
 
 Individual builders, if you want one widget at a time:
 
@@ -230,12 +231,11 @@ built from them. You create it once, next to `valve`:
    ```
 
    `-insecure` is **required** with Steam: secure mode refuses to load modified game DLLs.
-   Add `-console -condebug` to see the diagnostics (they are also written to
-   `dg_mod\qconsole.log`), and `-width`/`-height`/`-window` to force a resolution:
+   Add `-console -condebug` if you want the diagnostics (they are also written to
+   `dg_mod\qconsole.log`):
 
    ```
    -game dg_mod -insecure -console -condebug
-   -game dg_mod -insecure -width 1920 -height 1080 -window
    ```
 
    Without Steam it is the same command line: `hl.exe -game dg_mod -insecure`.
@@ -312,5 +312,11 @@ dg_mod\hud\                     распакованные патчи Doom — �
 ```
 
 `-insecure` **обязателен**: Steam в защищённом режиме отказывается грузить изменённые
-DLL. Для диагностики добавьте `-console -condebug` (лог пишется в `dg_mod\qconsole.log`),
-для проверки конкретного разрешения — `-width 1920 -height 1080 -window`.
+DLL. Для диагностики можно добавить `-console -condebug` (лог пишется в
+`dg_mod\qconsole.log`).
+
+**Разрешения.** Наборы спрайтов точно попадают в стандартные 4:3 (640×480, 800×600,
+1024×768, 1152×864, 1280×960, 1440×1080, 1920×1200), а любое другое разрешение, включая
+широкоэкранные, получает наибольший подходящий набор. Первым разрешением, проверенным в
+игре, был **800×600** — на нём HUD и настраивался (он же и эталонный набор, `dg25`), ещё
+проверены 1440×900 и 1440×1080.
