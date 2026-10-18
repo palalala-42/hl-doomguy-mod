@@ -12,6 +12,21 @@ Doom.
 > the game. Everything in `tools/` reads *your* `doom.wad`; no `.wad`, no extracted Doom
 > art and no built sprites are part of this repository (see `.gitignore`).
 
+## Requirements
+
+* **Half-Life 1** on Steam (plus its retail/Steam map files).
+* The **Half-Life SDK** — a separate **free** download in the same Steam library, on the
+  **Tools** tab: Steam client → *Library* → the filter dropdown above the list → *Tools* →
+  **Half-Life SDK** → *Install*. It lands next to the game as
+  `...\steamapps\common\Half-Life SDK`, and everything this patch needs is inside it:
+  `hlsdk\cl_dll\`, `hlsdk\dlls\` and `hlsdk\projects\vs2019\*.vcxproj`. (The same sources are
+  also on GitHub as `ValveSoftware/halflife`, but the Steam tool is the whole thing in one
+  install.)
+* Visual Studio 2019/2022 with the C++ toolset (Win32) — for `MSBuild`.
+* Windows PowerShell 5.1 (the builders use `System.Drawing`).
+* A full Doom IWAD: `doom.wad` (Doom Classic Bundle / Doom Classic 2019 is fine).
+  Shareware `doom1.wad` is missing most of the status bar and weapon frames.
+
 ## How to set up (short version)
 
 Five steps, in this order: **(1)** put `cl_dll/` into `<sdk>\cl_dll\` and `dlls/` into
@@ -71,21 +86,6 @@ tools/    the sprite builders (PowerShell 5.1)
 The finished mod folder (the one you launch) is **not** in the repository — it contains
 your own `doom.wad` and the sprites built from it. How to create it is the *Install*
 section below; the two sections before it produce the files that go into it.
-
-## Requirements
-
-* **Half-Life 1** on Steam (plus its retail/Steam map files).
-* The **Half-Life SDK** — a separate **free** download in the same Steam library, on the
-  **Tools** tab: Steam client → *Library* → the filter dropdown above the list → *Tools* →
-  **Half-Life SDK** → *Install*. It lands next to the game as
-  `...\steamapps\common\Half-Life SDK`, and everything this patch needs is inside it:
-  `hlsdk\cl_dll\`, `hlsdk\dlls\` and `hlsdk\projects\vs2019\*.vcxproj`. (The same sources are
-  also on GitHub as `ValveSoftware/halflife`, but the Steam tool is the whole thing in one
-  install.)
-* Visual Studio 2019/2022 with the C++ toolset (Win32) — for `MSBuild`.
-* Windows PowerShell 5.1 (the builders use `System.Drawing`).
-* A full Doom IWAD: `doom.wad` (Doom Classic Bundle / Doom Classic 2019 is fine).
-  Shareware `doom1.wad` is missing most of the status bar and weapon frames.
 
 ## Build — the game DLLs
 
@@ -301,17 +301,17 @@ the new size.
 Ассеты Doom в репозитории **не выкладываются** — нужен свой `doom.wad`, а спрайты
 собираются скриптами из `tools/` на своей машине.
 
-**Кратко, по порядку:** поставить из Steam бесплатный **Half-Life SDK** (Библиотека →
-*Инструменты*) → скопировать `cl_dll/` и `dlls/` в его папку `hlsdk\` и собрать
-`hl_cdll.vcxproj` + `hldll.vcxproj` → собрать спрайты `tools\build_all_scales.ps1` из
-своего `doom.wad` → создать `Half-Life\dg_mod\` рядом с `valve\` (туда `liblist.gam`, две
-DLL, спрайты и два `.cfg`) → запускать с `-game dg_mod -insecure`. Подробно — ниже.
-
 **Что нужно.** Half-Life в Steam и отдельно **Half-Life SDK** — это бесплатный инструмент в
 той же библиотеке Steam: *Библиотека* → фильтр над списком → *Инструменты* → **Half-Life SDK**
 → *Установить*. Он встаёт рядом с игрой (`...\steamapps\common\Half-Life SDK`), а нужные
 исходники лежат в его папке `hlsdk\` (`hlsdk\cl_dll\`, `hlsdk\dlls\`,
 `hlsdk\projects\vs2019\*.vcxproj`).
+
+**Кратко, по порядку:** поставить из Steam бесплатный **Half-Life SDK** (Библиотека →
+*Инструменты*) → скопировать `cl_dll/` и `dlls/` в его папку `hlsdk\` и собрать
+`hl_cdll.vcxproj` + `hldll.vcxproj` → собрать спрайты `tools\build_all_scales.ps1` из
+своего `doom.wad` → создать `Half-Life\dg_mod\` рядом с `valve\` (туда `liblist.gam`, две
+DLL, спрайты и два `.cfg`) → запускать с `-game dg_mod -insecure`. Подробно — ниже.
 
 **Сборка.** Исходники из `cl_dll/` и `dlls/` копируются в Half-Life SDK, собираются
 `hl_cdll.vcxproj` и `hldll.vcxproj` (Release / Win32), затем
