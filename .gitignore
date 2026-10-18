@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------
+#  Doom assets are NEVER published from this repository.
+#  Doom is (c) id Software / ZeniMax.  You must own the game and
+#  build the sprites yourself from your own copy of the IWAD.
+# ---------------------------------------------------------------
+*.wad
+*.lmp
+*.png
+*.pcx
+*.bmp
+
+# Built GoldSrc sprites / models / maps (derived from Doom assets)
+*.spr
+*.mdl
+*.bsp
+
+# Compiled game libraries
+*.dll
+*.pdb
+*.lib
+*.exp
+
+# Visual Studio / build junk
+.vs/
+*.user
+*.suo
+*.obj
+*.ilk
+*.idb
+*.res
+*.tlog
+Release/
+Debug/
+x64/
+Win32/
+build/
+
+# Logs
+*.log
+qconsole.log
+
+# Windows
+Thumbs.db
+desktop.ini
