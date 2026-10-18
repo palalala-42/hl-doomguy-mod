@@ -7,12 +7,13 @@
 # A Doom pixel is 6/5 as tall as it is wide, so the x scale is an integer and the
 # y scale is always 1.2 * x.  The set name carries the tag 10 * x:
 #
-#   tag 20   x2.0 / y2.4    fits 640x480       (also smaller 4:3 modes)
-#   tag 25   x2.5 / y3.0    fits 800x600       <- the reference, and the one the
-#                                                 tools used to build before
-#   tag 30   x3.0 / y3.6    fits 1024x768
-#   tag 40   x4.0 / y4.8    fits 1280x960 / 1280x720 (widescreen: pillarboxed)
-#   tag 50   x5.0 / y6.0    fits 1920x1080 and up
+#   tag 20   x2.0 / y2.4    exact fit 640x480      (and smaller 4:3 modes)
+#   tag 25   x2.5 / y3.0    exact fit 800x600      <- the reference set
+#   tag 30   x3.0 / y3.6    exact fit 1024x768
+#   tag 35   x3.5 / y4.2    exact fit 1152x864
+#   tag 40   x4.0 / y4.8    exact fit 1280x960, used for 1280x720/800/1024, 1366x768
+#   tag 45   x4.5 / y5.4    exact fit 1440x1080, used for 1440x900
+#   tag 50   x5.0 / y6.0    exact fit 1920x1200, used for 1600x1200, 1680x1050, 1920x1080
 #
 # Every set is built by the four builders into a scratch folder and then renamed
 # and copied into -OutDir:
@@ -32,7 +33,7 @@ param(
     [string]$Wad    = "D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\doom.wad",
     [string]$Hud    = "D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\hud",
     [string]$OutDir = "D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\sprites",
-    [string]$Tags   = "20,25,30,40,50",
+    [string]$Tags   = "20,25,30,35,40,45,50",
     [switch]$Clean
 )
 

@@ -93,25 +93,39 @@ Overrides and options (all builders take the same style of parameters):
 -Wad    <path to doom.wad>          default: D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\doom.wad
 -Hud    <folder with Doom PNGs>     default: D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\hud
 -OutDir <mod>\sprites               default: D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\sprites
--Tags   20,25,30,40,50              build only some scales
+-Tags   20,25,30,35,40,45,50        build only some scales
 -Clean                              remove the pre-scale-set file names first
 ```
 
 The script builds every requested scale and writes `dg<TAG>_*.spr` into `-OutDir`:
 
-| tag | x / y scale | fits | sprites |
-|---|---|---|---|
-| `20` | 2.0 / 2.4 | 640×480 | `dg20_stbar`, `dg20_face`, `dg20_num`, `dg20_pct`, `dg20_<weapon>_<frame>` |
-| `25` | 2.5 / 3.0 | 800×600 | … |
-| `30` | 3.0 / 3.6 | 1024×768 | … |
-| `40` | 4.0 / 4.8 | 1280×960, 1280×720 | … |
-| `50` | 5.0 / 6.0 | 1920×1080 and up | … |
+| tag | x / y scale | set used at |
+|---|---|---|
+| `20` | 2.0 / 2.4 | 640×480 |
+| `25` | 2.5 / 3.0 | 800×600, 854×480 |
+| `30` | 3.0 / 3.6 | 1024×768, 960×600 |
+| `35` | 3.5 / 4.2 | 1152×864 |
+| `40` | 4.0 / 4.8 | 1280×720, 1280×800, 1280×960, 1280×1024, 1366×768 |
+| `45` | 4.5 / 5.4 | 1440×900, 1440×1080 |
+| `50` | 5.0 / 6.0 | 1600×1200, 1680×1050, 1920×1080, 1920×1200 |
 
-A Doom pixel is 6/5 as tall as it is wide, so the x scale is an integer and the y scale is
-always `1.2 * x`. At `VidInit` the client asks the engine for the screen size, takes the
-biggest set that fits **and** that really exists on disk, and falls back to a smaller one
-(or to the plain Half-Life HUD) if it is missing. See `DoomPickScale()` in
-`cl_dll/health.cpp`.
+Every set contains the same 39 sprites: `dg<TAG>_stbar`, `dg<TAG>_face` (42 frames),
+`dg<TAG>_num` (10 frames), `dg<TAG>_pct` and the 35 viewmodel frames.
+
+### Supported resolutions
+
+The scale sets are the exact fits of the standard 4:3 modes — 640×480 (`dg20`),
+800×600 (`dg25`), 1024×768 (`dg30`), 1152×864 (`dg35`), 1280×960 (`dg40`), 1440×1080
+(`dg45`), 1920×1200 (`dg50`) — and **any other resolution, widescreen included, is served
+by the biggest set that fits** (see the table above). A mode smaller than 640×480 gets the
+smallest set, and a set that is missing on disk falls back to the next smaller one, so no
+resolution ever ends up with a broken HUD — only with a bar that is a little smaller than
+the perfect fit.
+
+Verified in game: 800×600 (the reference set) and 1440×900 / 1440×1080 (the wide modes).
+The other sets come from the same Doom patches through the same pipeline and are picked
+automatically; if a resolution ever looks off, the console line
+`doomhud: screen <W>x<H> -> tag <n>` says which set was chosen.
 
 Individual builders, if you want one widget at a time:
 

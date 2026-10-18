@@ -306,11 +306,14 @@ void CHudHealth::Reset( void )
 }
 
 // ---------------------------------------------------------------------------
-// The scale sets that exist, largest last.  x scale 2.0/2.5/3.0/4.0/5.0 with
-// y = 1.2 * x: 640x480, 800x600, 1024x768, 1280x960 and 1920x1080 (and every
-// other mode in between, which snaps down to the biggest set that fits).
+// The scale sets that exist, largest last.  x scale 2.0 .. 5.0 with y = 1.2 * x.
+// Each one is the exact fit of a 4:3 screen, and covers a whole band of modes:
+//   20 -> 640x480     25 -> 800x600     30 -> 1024x768    35 -> 1152x864
+//   40 -> 1280x960    45 -> 1440x1080   50 -> 1920x1200
+// Every other resolution (widescreen included) snaps down to the biggest set
+// that still fits, which keeps the bar at the same share of the screen.
 // ---------------------------------------------------------------------------
-static const int s_iDoomScaleTags[] = { 20, 25, 30, 40, 50 };
+static const int s_iDoomScaleTags[] = { 20, 25, 30, 35, 40, 45, 50 };
 
 // Choose the sprite set for the current screen.  Runs in CHud::VidInit before
 // any Doom sprite is loaded, so the bar, the face, the digits and the viewmodels
