@@ -56,6 +56,10 @@ dlls/     server DLL sources   -> copy into <sdk>\dlls\
 tools/    the sprite builders (PowerShell 5.1)
 ```
 
+The finished mod folder (the one you launch) is **not** in the repository — it contains
+your own `doom.wad` and the sprites built from it. How to create it is the *Install*
+section below; the two sections before it produce the files that go into it.
+
 ## Requirements
 
 * Half-Life 1 (Steam and the retail/Steam map files) plus the **Half-Life SDK** sources
@@ -87,12 +91,13 @@ them into your mod folder as `<mod>\cl_dlls\client.dll` and `<mod>\dlls\hl.dll`
 powershell -ExecutionPolicy Bypass -File tools\build_all_scales.ps1
 ```
 
-Overrides and options (all builders take the same style of parameters):
+Overrides and options (all builders take the same style of parameters; **the defaults below
+point at the author's own install, so pass them explicitly**):
 
 ```
--Wad    <path to doom.wad>          default: D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\doom.wad
--Hud    <folder with Doom PNGs>     default: D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\hud
--OutDir <mod>\sprites               default: D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\sprites
+-Wad    <path to doom.wad>          default: <author's mod folder>\doom.wad
+-Hud    <folder with Doom PNGs>     default: <author's mod folder>\hud
+-OutDir <mod>\sprites               default: <author's mod folder>\sprites
 -Tags   20,25,30,35,40,45,50        build only some scales
 -Clean                              remove the pre-scale-set file names first
 ```
@@ -136,17 +141,115 @@ tools\build_doomnum_spr.ps1   -ScaleX 2.5 -ScaleY 3.0        the STTNUM digits
 tools\doom_weapon_sprites.ps1 -ScaleX 2.5 -ScaleY 3.0        every viewmodel + flashes
 ```
 
+## Install — the mod folder
+
+This repository is the *source*: it has no `dg_mod` folder and cannot have one, because
+the mod folder holds your own `doom.wad`, the patches extracted from it and the sprites
+built from them. You create it once, next to `valve`:
+
+```
+<Half-Life>\
+  hl.exe
+  valve\                     the original game (used as fallback_dir)
+  dg_mod\                    the mod — this is what you create
+    liblist.gam              tells the engine this folder is a game
+    cl_dlls\client.dll       built from hl_cdll.vcxproj
+    dlls\hl.dll              built from hldll.vcxproj
+    sprites\dg20_*.spr       built by tools\build_all_scales.ps1
+    sprites\dg25_*.spr
+    ...
+    sprites\dg50_*.spr
+    userconfig.cfg           look / speed cvars
+    server.cfg               movement / autoaim cvars
+    doom.wad                 your IWAD — build input only, not read at runtime
+    hud\                     your extracted Doom patches — build input only
+```
+
+1. **Create the folder** inside the Half-Life installation, next to `valve`
+   (`...\steamapps\common\Half-Life\dg_mod`). Any name works; the rest of the section
+   assumes `dg_mod`.
+2. **Write `liblist.gam`** — the one file the engine needs to see a game directory. This is
+   exactly what is used here:
+
+   ```
+   game "Doomguy Mod"
+   startmap "c1a0"
+   trainmap "c1a0"
+   mp_entitylist ""
+   mp_filter ""
+   gamedll "dlls\hl.dll"
+   mpentity "info_player_start"
+   secure "1"
+   fallback_dir "valve"
+   type "singleplayer_only"
+   ```
+
+   `fallback_dir "valve"` is the important line: the mod reuses every Half-Life map, sound,
+   model and menu, and only the files present in `dg_mod` override them. There is no need
+   to copy the game data.
+3. **Copy the two DLLs you built** into `dg_mod\cl_dlls\client.dll` and
+   `dg_mod\dlls\hl.dll` (the game must be closed — it locks them).
+4. **Build the sprites** into `dg_mod\sprites\` (the section above). The client only loads
+   the sprite sets that exist, so you can install a single set while testing.
+
+   `doom.wad` and `hud\` are only inputs for the builders. They may live anywhere (the
+   builders' `-Wad` / `-Hud` parameters point at them); keeping them in the mod folder is
+   just convenient.
+5. **Copy the two config files** (they are plain text, not Doom assets). `userconfig.cfg` is
+   executed by the client after `config.cfg`, `server.cfg` when the listen server starts:
+
+   ```
+   // dg_mod\userconfig.cfg
+   unbind "PGUP"
+   unbind "PGDN"
+   unbind "INS"
+   m_pitch "0"
+   cl_forwardspeed 1000
+   cl_backspeed 1000
+   cl_sidespeed 1000
+   r_drawviewmodel "1"
+   ```
+
+   ```
+   // dg_mod\server.cfg
+   sv_maxspeed 960
+   sv_friction 20
+   sv_accelerate 100
+   sv_airaccelerate 100
+   sv_aim 1
+   sv_allow_autoaim 1
+   ```
+
+   These are the values the mod was developed and tested with — tune them to taste. They
+   are ordinary Half-Life cvars, so you can also just type them in the console.
+6. **Launch it.** In Steam: right click **Half-Life** → *Properties* → *Launch Options* and
+   put
+
+   ```
+   -game dg_mod -insecure
+   ```
+
+   `-insecure` is **required** with Steam: secure mode refuses to load modified game DLLs.
+   Add `-console -condebug` to see the diagnostics (they are also written to
+   `dg_mod\qconsole.log`), and `-width`/`-height`/`-window` to force a resolution:
+
+   ```
+   -game dg_mod -insecure -console -condebug
+   -game dg_mod -insecure -width 1920 -height 1080 -window
+   ```
+
+   Without Steam it is the same command line: `hl.exe -game dg_mod -insecure`.
+
+`New Game` then runs Half-Life's own campaign (`startmap c1a0`) with the Doom status bar,
+the Doom viewmodels and the Doom movement.
+
 ## Play
 
-Set the cvars (they are plain Half-Life cvars, no extra config is needed):
-
-```
-sv_maxspeed 960; sv_friction 8; sv_accelerate 100; sv_airaccelerate 100
-sv_aim 1; sv_allow_autoaim 1; m_pitch 0
-```
-
 `r_drawviewmodel` is switched off automatically while a weapon with a Doom viewmodel is
-held, and back on for the weapons that keep the Half-Life viewmodel.
+held, and back on for the weapons that keep the Half-Life viewmodel. `+use` and the autoaim
+are server side and need no binds. The only thing worth knowing in game: the sprite set is
+chosen when a level is initialised, so after changing the video mode load a savegame to see
+the new size.
 
 ## Known gaps / TODO
 
@@ -177,8 +280,37 @@ held, and back on for the weapons that keep the Half-Life viewmodel.
 Ассеты Doom в репозитории **не выкладываются** — нужен свой `doom.wad`, а спрайты
 собираются скриптами из `tools/` на своей машине.
 
-Сборка: исходники из `cl_dll/` и `dlls/` копируются в Half-Life SDK, собираются
+**Сборка.** Исходники из `cl_dll/` и `dlls/` копируются в Half-Life SDK, собираются
 `hl_cdll.vcxproj` и `hldll.vcxproj` (Release / Win32), затем
 `tools\build_all_scales.ps1` собирает наборы спрайтов под все разрешения
-(`dg20_*`, `dg25_*`, `dg30_*`, `dg40_*`, `dg50_*`); клиент сам выбирает подходящий набор
-под текущее разрешение.
+(`dg20_*`, `dg25_*`, `dg30_*`, `dg35_*`, `dg40_*`, `dg45_*`, `dg50_*`); клиент сам
+выбирает подходящий набор под текущее разрешение.
+
+**Установка.** Папки `dg_mod` в репозитории нет и быть не может: в ней лежат ваш
+`doom.wad` и собранные из него спрайты. Она создаётся один раз рядом с `valve`
+(например `...\steamapps\common\Half-Life\dg_mod`):
+
+```
+dg_mod\liblist.gam              описание мода (см. раздел Install в английской части)
+dg_mod\cl_dlls\client.dll       собранный клиент
+dg_mod\dlls\hl.dll              собранный сервер
+dg_mod\sprites\dg*_*.spr        собранные наборы спрайтов
+dg_mod\userconfig.cfg           m_pitch 0 и скорости (текст есть выше)
+dg_mod\server.cfg               sv_maxspeed / sv_friction / sv_accelerate / autoaim
+dg_mod\doom.wad                 ваш IWAD — только для сборки
+dg_mod\hud\                     распакованные патчи Doom — только для сборки
+```
+
+`fallback_dir "valve"` в `liblist.gam` означает, что карты, звуки и модели берутся из
+обычного Half-Life, а из `dg_mod` подменяется только то, что в нём лежит, — копировать
+данные игры не нужно.
+
+**Запуск.** Steam → правый клик по Half-Life → *Свойства* → *Параметры запуска*:
+
+```
+-game dg_mod -insecure
+```
+
+`-insecure` **обязателен**: Steam в защищённом режиме отказывается грузить изменённые
+DLL. Для диагностики добавьте `-console -condebug` (лог пишется в `dg_mod\qconsole.log`),
+для проверки конкретного разрешения — `-width 1920 -height 1080 -window`.
