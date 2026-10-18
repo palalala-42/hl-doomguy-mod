@@ -12,6 +12,18 @@ Doom.
 > the game. Everything in `tools/` reads *your* `doom.wad`; no `.wad`, no extracted Doom
 > art and no built sprites are part of this repository (see `.gitignore`).
 
+## How to set up (short version)
+
+Five steps, in this order: **(1)** put `cl_dll/` into `<sdk>\cl_dll\` and `dlls/` into
+`<sdk>\dlls\` (the `hlsdk` folder of the free *Half-Life SDK* from the Steam **Tools**
+tab) and build `hl_cdll.vcxproj` + `hldll.vcxproj`, Release/Win32; **(2)** build the sprites
+with `tools\build_all_scales.ps1`, pointing `-Wad` at your own `doom.wad`; **(3)** create
+`<Half-Life>\dg_mod\` next to `valve\` with a `liblist.gam` (below), the two built DLLs as
+`cl_dlls\client.dll` and `dlls\hl.dll`, the sprites in `sprites\`, and the shipped
+`userconfig.cfg` / `server.cfg`; **(4)** launch with `-game dg_mod -insecure` in Steam's
+launch options; **(5)** play. Every step is spelled out in *Install — the mod folder*,
+including why `-insecure` is needed.
+
 ## What it does
 
 * **Doom status bar (STBAR)** instead of the Half-Life gauges. Ammo, health and armour are
@@ -288,6 +300,12 @@ the new size.
 
 Ассеты Doom в репозитории **не выкладываются** — нужен свой `doom.wad`, а спрайты
 собираются скриптами из `tools/` на своей машине.
+
+**Кратко, по порядку:** поставить из Steam бесплатный **Half-Life SDK** (Библиотека →
+*Инструменты*) → скопировать `cl_dll/` и `dlls/` в его папку `hlsdk\` и собрать
+`hl_cdll.vcxproj` + `hldll.vcxproj` → собрать спрайты `tools\build_all_scales.ps1` из
+своего `doom.wad` → создать `Half-Life\dg_mod\` рядом с `valve\` (туда `liblist.gam`, две
+DLL, спрайты и два `.cfg`) → запускать с `-game dg_mod -insecure`. Подробно — ниже.
 
 **Что нужно.** Half-Life в Steam и отдельно **Half-Life SDK** — это бесплатный инструмент в
 той же библиотеке Steam: *Библиотека* → фильтр над списком → *Инструменты* → **Half-Life SDK**
