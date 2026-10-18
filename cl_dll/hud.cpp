@@ -417,6 +417,12 @@ int CHud :: GetSpriteIndex( const char *SpriteName )
 	return -1; // invalid sprite
 }
 
+// health.cpp: picks the Doom sprite set (dg20_/dg25_/dg30_/dg40_/dg50_) that fits
+// the current screen.  Declared here because CHud::VidInit loads the Doom digits
+// before CHudHealth::VidInit gets a chance to run.
+extern void DoomPickScale(void);
+extern int  g_iDoomScaleTag;
+
 void CHud :: VidInit( void )
 {
 	m_scrinfo.iSize = sizeof(m_scrinfo);
@@ -511,8 +517,14 @@ void CHud :: VidInit( void )
 
 	m_iFontHeight = m_rgrcRects[m_HUD_number_0].bottom - m_rgrcRects[m_HUD_number_0].top;
 
-	// Doom status bar digits, one multi-frame sprite (frame N = digit N)
-	m_hDoomNumber = gEngfuncs.pfnSPR_Load("sprites/doomnum.spr");
+	// Doom status bar digits, one multi-frame sprite (frame N = digit N).
+	// The scale set is picked first: the digits, the bar, the face and the
+	// viewmodels must all come from the same one (dg<TAG>_*).
+	DoomPickScale();
+
+	char szDoomNum[64];
+	sprintf(szDoomNum, "sprites/dg%d_num.spr", g_iDoomScaleTag);
+	m_hDoomNumber = gEngfuncs.pfnSPR_Load(szDoomNum);
 	if (m_hDoomNumber)
 	{
 		m_iDoomNumWidth  = SPR_Width(m_hDoomNumber, 0);
@@ -524,7 +536,8 @@ void CHud :: VidInit( void )
 		m_iDoomNumWidth  = m_rgrcRects[m_HUD_number_0].right - m_rgrcRects[m_HUD_number_0].left;
 		m_iDoomNumHeight = m_iFontHeight;
 	}
-	gEngfuncs.Con_Printf("doomnum spr loaded: %p, cell=%dx%d\n", m_hDoomNumber, m_iDoomNumWidth, m_iDoomNumHeight);
+	gEngfuncs.Con_Printf("doomnum spr loaded tag %d: %p, cell=%dx%d\n",
+		g_iDoomScaleTag, m_hDoomNumber, m_iDoomNumWidth, m_iDoomNumHeight);
 
 	m_Ammo.VidInit();
 	m_Health.VidInit();

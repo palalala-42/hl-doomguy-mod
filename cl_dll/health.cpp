@@ -39,12 +39,21 @@ int giDmgHeight, giDmgWidth;
 // ---------------------------------------------------------------------------
 // Doom status bar (STBAR)
 //
-// Same pipeline as the viewmodels and the face: the Doom patch is baked at the
-// on-screen scale (2.5 in x, 3.0 in y, i.e. Doom's 320x200 screen on 800x600)
-// and drawn as a sprite.  Doom's status bar is the bottom 32 rows of that
-// screen (st_stuff.c: ST_Y = 168), so it is 800x96 at the bottom of an 800x600
-// screen - and GUN_BASELINE (96) below is exactly its top edge, because in Doom
-// the psprite is clipped to the 168 line view window.
+// Same pipeline as the viewmodels and the face: the Doom patch is baked at an
+// on-screen scale and drawn as a sprite.  Doom's status bar is the bottom 32
+// rows of the 320x200 screen (st_stuff.c: ST_Y = 168), so at scale 2.5/3.0 it is
+// 800x96 at the bottom of an 800x600 screen - and the gun baseline below is
+// exactly its top edge, because in Doom the psprite is clipped to the 168 line
+// view window.
+//
+// Sprites are pixel art and the engine draws them 1:1 (there is no scaled sprite
+// draw in the client API), so one set of sprites exists per scale.  A Doom pixel
+// is 6/5 as tall as it is wide, so the x scale is an integer and the y scale is
+// always 1.2 * x; the sets are named dg<TAG>_* with TAG = 10 * x (dg20, dg25,
+// dg30, dg40, dg50).  DoomPickScale() runs first in VidInit: it takes the
+// biggest set that still fits the screen and that really exists on disk, so the
+// bar keeps the same share of every screen and a missing set degrades to a
+// smaller one (or to the plain Half-Life HUD) instead of drawing nothing.
 //
 // Widget coordinates are Doom's own (bar top = 168), from st_stuff.c/st_lib.c:
 //    ST_AMMOX 44   y 171     ST_HEALTHX 90  + '%' AT 90     ST_ARMORX 221 + '%'
@@ -57,16 +66,29 @@ bool g_bDoomStatusBar = false;	// set in VidInit; battery.cpp/ammo.cpp read it
 int  g_iDoomArmor = 0;		// published by CHudBattery::Draw
 int  g_iDoomAmmo = 0;		// published by CHudAmmo::Draw
 
-static HSPRITE s_hDoomBar = 0;	// sprites/doomstbar.spr  320x32 -> 800x96
-static HSPRITE s_hDoomPct = 0;	// sprites/doompct.spr    STTPRCNT -> 35x48
+// Current Doom -> screen scale.  The scale tag names the sprite set, so every
+// Doom sprite of the mod is sprites/dg<TAG>_*: dg25_stbar, dg25_pct, dg25_face,
+// dg25_num and the viewmodels dg25_<key>_<frame> / dg25_<key>_f<frame>.
+float g_flDoomScaleX = 2.5f;		// Doom pixel -> screen pixel, x
+float g_flDoomScaleY = 3.0f;		// ... and y (always 1.2 * g_flDoomScaleX)
+int   g_iDoomScaleTag = 25;		// 10 * g_flDoomScaleX, used in the file names
 
-#define DOOMBAR_SCALEX	2.5f			// 800/320
-#define DOOMBAR_SCALEY	3.0f			// 600/200
-#define DOOMBAR_X(v)	((int)((v) * DOOMBAR_SCALEX + 0.5f))
-#define DOOMBAR_Y(v)	((int)((v) * DOOMBAR_SCALEY + 0.5f))
+static HSPRITE s_hDoomBar = 0;	// sprites/dg<TAG>_stbar.spr  STBAR    320x32
+static HSPRITE s_hDoomPct = 0;	// sprites/dg<TAG>_pct.spr    STTPRCNT  14x16
 
-#define DOOMFACE_X	358			// (ST_FACESX 143 + canvas anchor 0) * 2.5
-#define DOOMFACE_Y	3			// (ST_FACESY 168 + anchor 1) * 3 - bar height
+#define DOOMBAR_X(v)	((int)((v) * g_flDoomScaleX + 0.5f))
+#define DOOMBAR_Y(v)	((int)((v) * g_flDoomScaleY + 0.5f))
+
+// The face canvas anchor is (0,1) in Doom units and the bar's top edge is Doom
+// row 168 (ST_Y), so the face offset is measured from there:
+//   x: ST_FACESX 143 + anchor 0
+//   y: (ST_FACESY 168 + anchor 1) - ST_Y 168
+#define DOOMFACE_X	((int)(143 * g_flDoomScaleX + 0.5f))
+#define DOOMFACE_Y	((int)(1   * g_flDoomScaleY + 0.5f))
+
+// The viewmodel is cut off at the bar's top edge (Doom's psprite is clipped to
+// row 168), i.e. its baseline is the bar height.
+#define DOOMGUN_BASELINE ((int)(32 * g_flDoomScaleY + 0.5f))
 
 int giDmgFlags[NUM_DMG_TYPES] = 
 {
@@ -283,6 +305,70 @@ void CHudHealth::Reset( void )
 	}
 }
 
+// ---------------------------------------------------------------------------
+// The scale sets that exist, largest last.  x scale 2.0/2.5/3.0/4.0/5.0 with
+// y = 1.2 * x: 640x480, 800x600, 1024x768, 1280x960 and 1920x1080 (and every
+// other mode in between, which snaps down to the biggest set that fits).
+// ---------------------------------------------------------------------------
+static const int s_iDoomScaleTags[] = { 20, 25, 30, 40, 50 };
+
+// Choose the sprite set for the current screen.  Runs in CHud::VidInit before
+// any Doom sprite is loaded, so the bar, the face, the digits and the viewmodels
+// always agree on one scale.
+void DoomPickScale(void)
+{
+	// m_scrinfo/ScreenWidth are already set by the time VidInit runs, but ask the
+	// engine directly so this cannot depend on when it is called.
+	SCREENINFO si;
+	memset(&si, 0, sizeof(si));
+	si.iSize = sizeof(si);
+	GetScreenInfo(&si);
+
+	int iW = si.iWidth  > 0 ? si.iWidth  : ScreenWidth;
+	int iH = si.iHeight > 0 ? si.iHeight : ScreenHeight;
+	if (iW <= 0 || iH <= 0)
+		return;					// no layout yet - keep the defaults
+
+	int iCount = (int)(sizeof(s_iDoomScaleTags) / sizeof(s_iDoomScaleTags[0]));
+	int iPick = -1, iSmallest = -1;
+
+	for (int i = iCount - 1; i >= 0; i--)
+	{
+		float sx = s_iDoomScaleTags[i] / 10.0f;
+		float sy = sx * 1.2f;			// a Doom pixel is 6/5 as tall as it is wide
+
+		char szPath[64];
+		sprintf(szPath, "sprites/dg%d_stbar.spr", s_iDoomScaleTags[i]);
+		if (!SPR_Load(szPath))
+			continue;			// this set was not built - try a smaller one
+
+		if (iSmallest < 0)
+			iSmallest = i;
+
+		if (320.0f * sx <= (float)iW && 32.0f * sy <= (float)iH)
+		{
+			iPick = i;
+			break;
+		}
+	}
+
+	// Screen smaller than every set (or no set at all): the smallest one still
+	// beats nothing, and the engine clips what does not fit.
+	if (iPick < 0)
+		iPick = iSmallest;
+
+	if (iPick >= 0)
+	{
+		g_iDoomScaleTag = s_iDoomScaleTags[iPick];
+		g_flDoomScaleX  = g_iDoomScaleTag / 10.0f;
+		g_flDoomScaleY  = g_flDoomScaleX * 1.2f;
+	}
+
+	gEngfuncs.Con_Printf("doomhud: screen %dx%d -> tag %d scale %.2f/%.2f (bar %dx%d)\n",
+		iW, iH, g_iDoomScaleTag, g_flDoomScaleX, g_flDoomScaleY,
+		DOOMBAR_X(320), DOOMBAR_Y(32));
+}
+
 int CHudHealth::VidInit(void)
 {
 	m_hSprite = 0;
@@ -297,7 +383,7 @@ int CHudHealth::VidInit(void)
 				m_hDoomGun[i][f] = 0;
 				if (f < s_doomGun[i].iFrames)
 				{
-					sprintf(szPath, "sprites/dg_%s_%c.spr", s_doomGun[i].pszKey, 'a' + f);
+					sprintf(szPath, "sprites/dg%d_%s_%c.spr", g_iDoomScaleTag, s_doomGun[i].pszKey, 'a' + f);
 					m_hDoomGun[i][f] = gEngfuncs.pfnSPR_Load(szPath);
 				}
 			}
@@ -306,32 +392,40 @@ int CHudHealth::VidInit(void)
 				m_hDoomGunFlash[i][f] = 0;
 				if (f < s_doomGun[i].iFlash)
 				{
-					sprintf(szPath, "sprites/dg_%s_f%c.spr", s_doomGun[i].pszKey, 'a' + f);
+					sprintf(szPath, "sprites/dg%d_%s_f%c.spr", g_iDoomScaleTag, s_doomGun[i].pszKey, 'a' + f);
 					m_hDoomGunFlash[i][f] = gEngfuncs.pfnSPR_Load(szPath);
 				}
 			}
-			gEngfuncs.Con_Printf("doomgun %s: idle=%p size=%dx%d frames=%d flash=%d\n",
-				s_doomGun[i].pszKey, m_hDoomGun[i][0],
+			gEngfuncs.Con_Printf("doomgun %s tag %d: idle=%p size=%dx%d frames=%d flash=%d\n",
+				s_doomGun[i].pszKey, g_iDoomScaleTag, m_hDoomGun[i][0],
 				SPR_Width(m_hDoomGun[i][0], 0), SPR_Height(m_hDoomGun[i][0], 0),
 				s_doomGun[i].iFrames, s_doomGun[i].iFlash);
 		}
 	}
 
-	m_hFaceSprite = gEngfuncs.pfnSPR_Load("sprites/doomface.spr");
+	// The face, the bar and the '%' patch come from the same set as the digits
+	// (dg<TAG>_face / dg<TAG>_stbar / dg<TAG>_pct), all picked in CHud::VidInit.
+	char szDoom[64];
+	sprintf(szDoom, "sprites/dg%d_face.spr", g_iDoomScaleTag);
+	m_hFaceSprite = gEngfuncs.pfnSPR_Load(szDoom);
 
 	// Doom status bar: the bar itself and the '%' patch (the digits come from
 	// gHUD.m_hDoomNumber, which CHud::VidInit has already loaded).
-	s_hDoomBar = gEngfuncs.pfnSPR_Load("sprites/doomstbar.spr");
-	s_hDoomPct = gEngfuncs.pfnSPR_Load("sprites/doompct.spr");
+	sprintf(szDoom, "sprites/dg%d_stbar.spr", g_iDoomScaleTag);
+	s_hDoomBar = gEngfuncs.pfnSPR_Load(szDoom);
+	sprintf(szDoom, "sprites/dg%d_pct.spr", g_iDoomScaleTag);
+	s_hDoomPct = gEngfuncs.pfnSPR_Load(szDoom);
 
 	// Only hide the Half-Life readouts when the bar is really there, so a
 	// missing sprite degrades to the plain HL HUD instead of an empty one.
 	g_bDoomStatusBar = (s_hDoomBar != 0);
 
-	gEngfuncs.Con_Printf("doomstbar: bar=%p %dx%d pct=%p %dx%d num cell=%dx%d bar=%d\n",
+	gEngfuncs.Con_Printf("doomstbar tag %d: bar=%p %dx%d pct=%p %dx%d num cell=%dx%d bar=%d scale=%.2f/%.2f\n",
+		g_iDoomScaleTag,
 		s_hDoomBar, SPR_Width(s_hDoomBar, 0), SPR_Height(s_hDoomBar, 0),
 		s_hDoomPct, SPR_Width(s_hDoomPct, 0), SPR_Height(s_hDoomPct, 0),
-		gHUD.m_iDoomNumWidth, gHUD.m_iDoomNumHeight, (int)g_bDoomStatusBar);
+		gHUD.m_iDoomNumWidth, gHUD.m_iDoomNumHeight, (int)g_bDoomStatusBar,
+		g_flDoomScaleX, g_flDoomScaleY);
 
 	// A level change (or a save load) invalidates every sprite handle and restarts
 	// the HUD clock.  ResetHUD may arrive on either side of VidInit, so drop all
@@ -564,7 +658,9 @@ int CHudHealth::Draw(float flTime)
 // The per-weapon tables (s_doomGun / s_doomAnim) are at the top of this file;
 // every weapon uses the same placement rule and the same canvas bottom line.
 // ---------------------------------------------------------------------------
-#define GUN_BASELINE	96			// px between the weapon bottom and the screen bottom
+// The viewmodel is cut off at the status bar's top edge (DOOMGUN_BASELINE), so
+// the gun disappears behind the bar exactly like Doom's psprite at row 168.
+#define GUN_BASELINE	DOOMGUN_BASELINE
 
 int CHudHealth::DoomGunAnimForWeapon(int iHlWeaponId)
 {
@@ -651,7 +747,11 @@ void CHudHealth::DrawGun(void)
 
 	// Doom placement: the canvas column at the screen centre is flCenterX
 	int gx = ScreenWidth / 2 - (int)(gw * pd->flCenterX / pd->flCanvasW + 0.5f);
-	int gy = (ScreenHeight - GUN_BASELINE) - gh;
+
+	// The gun sits on the bar's top edge: use the sprite that was really loaded,
+	// so a missing bar cannot push the viewmodel off the screen.
+	int iBase = s_hDoomBar ? SPR_Height(s_hDoomBar, 0) : GUN_BASELINE;
+	int gy = (ScreenHeight - iBase) - gh;
 	if (gy < 0) gy = 0;
 
 	int frame = 0;
@@ -805,8 +905,8 @@ int CHudHealth::DrawFace(float flTime)
 	}
 
 	{
-		int faceW = 96;
-		int faceH = 96;
+		int faceW = DOOMBAR_X(32);
+		int faceH = DOOMBAR_Y(32);
 		if (m_hFaceSprite)
 		{
 			faceW = SPR_Width(m_hFaceSprite, 0);
@@ -815,8 +915,8 @@ int CHudHealth::DrawFace(float flTime)
 
 		// The face sits in the status bar's face box: the canvas anchor is Doom's
 		// (ST_FACESX, ST_FACESY + canvas anchor), scaled the same way as the bar.
-		int barW = s_hDoomBar ? SPR_Width(s_hDoomBar, 0) : 800;
-		int barH = s_hDoomBar ? SPR_Height(s_hDoomBar, 0) : 96;
+		int barW = s_hDoomBar ? SPR_Width(s_hDoomBar, 0) : DOOMBAR_X(320);
+		int barH = s_hDoomBar ? SPR_Height(s_hDoomBar, 0) : DOOMBAR_Y(32);
 
 		int faceX = (ScreenWidth - barW) / 2 + DOOMFACE_X;
 		int faceY = ScreenHeight - barH + DOOMFACE_Y;
