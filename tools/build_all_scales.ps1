@@ -32,12 +32,25 @@ param(
     [string]$Wad    = "D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\doom.wad",
     [string]$Hud    = "D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\hud",
     [string]$OutDir = "D:\SteamLibrary\steamapps\common\Half-Life\dg_mod\sprites",
-    [int[]] $Tags   = @(20, 25, 30, 40, 50),
+    [string]$Tags   = "20,25,30,40,50",
     [switch]$Clean
 )
 
 $ErrorActionPreference = 'Stop'
 $tools = $PSScriptRoot
+
+# -Tags accepts "20,25", "20 25" and a real array.  Do not declare it as [int[]]:
+# PowerShell joins an array argument with spaces ("20 30") and then coerces that
+# string to a single int (2030), silently building a nonsense scale.
+$tagList = @()
+foreach ($t in ($Tags -split '[,;\s]+')) {
+    if ($t -eq '') { continue }
+    $n = 0
+    if (-not [int]::TryParse($t, [ref]$n)) { throw "-Tags: '$t' is not a number" }
+    if ($n -lt 10 -or $n -gt 99)           { throw "-Tags: '$t' is out of range (expect 10..99)" }
+    $tagList += $n
+}
+if ($tagList.Count -eq 0) { throw "-Tags is empty" }
 
 foreach ($p in @($Wad, $Hud)) {
     if (-not (Test-Path $p)) { throw "not found: $p" }
@@ -52,7 +65,7 @@ if ($Clean) {
     } | ForEach-Object { "clean    : removing $($_.Name)"; Remove-Item $_.FullName -Force }
 }
 
-foreach ($tag in $Tags) {
+foreach ($tag in $tagList) {
 
     $sx = $tag / 10.0
     $sy = [math]::Round($sx * 1.2, 4)
